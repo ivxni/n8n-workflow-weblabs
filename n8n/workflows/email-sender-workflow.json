@@ -1,0 +1,193 @@
+{
+  "name": "Weblabs E-Mail Sender",
+  "nodes": [
+    {
+      "parameters": {
+        "interval": 10,
+        "unit": "minutes"
+      },
+      "id": "schedule-trigger",
+      "name": "Alle 10 Min prüfen",
+      "type": "n8n-nodes-base.interval",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://backend:8000/api/leads",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "approved"
+            },
+            {
+              "name": "per_page",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-approved-leads",
+      "name": "Genehmigte Leads holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "notes": "Holt max 5 Leads pro Durchlauf um Spam-Blocking zu vermeiden"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "leads",
+        "options": {}
+      },
+      "id": "split-leads",
+      "name": "Leads aufteilen",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-email",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-email",
+      "name": "Hat E-Mail?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8000/api/leads/{{ $json.id }}/send-email",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "E-Mail senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 200]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "wait",
+      "name": "30 Sek warten",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1280, 200],
+      "notes": "Sicherheitsabstand zwischen E-Mails"
+    },
+    {
+      "parameters": {},
+      "id": "skip",
+      "name": "Übersprungen",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1080, 400]
+    }
+  ],
+  "connections": {
+    "Alle 10 Min prüfen": {
+      "main": [
+        [
+          {
+            "node": "Genehmigte Leads holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Genehmigte Leads holen": {
+      "main": [
+        [
+          {
+            "node": "Leads aufteilen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads aufteilen": {
+      "main": [
+        [
+          {
+            "node": "Hat E-Mail?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hat E-Mail?": {
+      "main": [
+        [
+          {
+            "node": "E-Mail senden",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Übersprungen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E-Mail senden": {
+      "main": [
+        [
+          {
+            "node": "30 Sek warten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "weblabs-local"
+  },
+  "tags": [
+    {
+      "name": "Email",
+      "id": "2"
+    }
+  ]
+}

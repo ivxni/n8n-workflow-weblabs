@@ -1,0 +1,218 @@
+{
+  "name": "Weblabs Lead Generator",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Täglich 9 Uhr",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/api/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "city",
+              "value": "Stuttgart"
+            },
+            {
+              "name": "radius_km",
+              "value": "60"
+            },
+            {
+              "name": "max_results",
+              "value": "20"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "search-leads",
+      "name": "Neue Leads suchen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.new_leads }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-new-leads",
+      "name": "Neue Leads?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/api/leads/bulk/generate-emails",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "new"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "generate-emails",
+      "name": "E-Mails generieren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 280]
+    },
+    {
+      "parameters": {
+        "channel": "#leads",
+        "text": "=🎯 *Neue Leads gefunden!*\n\n{{ $json.new_leads }} neue potenzielle Kunden wurden hinzugefügt.\n\n📊 Insgesamt gefunden: {{ $json.found }}\n\nÖffne das Dashboard um sie zu prüfen: http://localhost:3000",
+        "otherOptions": {}
+      },
+      "id": "slack-notify",
+      "name": "Slack Benachrichtigung",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [920, 480],
+      "disabled": true,
+      "notesInFlow": true,
+      "notes": "Optional: Aktiviere und konfiguriere Slack für Benachrichtigungen"
+    },
+    {
+      "parameters": {},
+      "id": "no-op",
+      "name": "Keine neuen Leads",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [920, 580]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Neue Leads suchen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Täglich 9 Uhr": {
+      "main": [
+        [
+          {
+            "node": "Neue Leads suchen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue Leads suchen": {
+      "main": [
+        [
+          {
+            "node": "Neue Leads?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue Leads?": {
+      "main": [
+        [
+          {
+            "node": "E-Mails generieren",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Slack Benachrichtigung",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Keine neuen Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "weblabs-local"
+  },
+  "tags": [
+    {
+      "name": "Lead Generation",
+      "id": "1"
+    }
+  ]
+}
